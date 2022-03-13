@@ -6,7 +6,7 @@ from utils.api_models import ContextQuestionList
 
 
 """ 
-Run locally using http://localhost:5000/predict
+Run locally using http://localhost:5000
 """
 
 app = FastAPI(

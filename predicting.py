@@ -10,13 +10,13 @@ from utils.model_utils import load_bert_tokenizer
 def predict_api(test_dict):
     conf = config.bert_conf
     tokenizer = load_bert_tokenizer(conf["bert_folder"])
-    # create data
+    # Create data
     data_dict = test_dict.dict()
     text_question_list = create_api_questions(data_dict, tokenizer, conf["max_len"])
     x_test = create_api_inputs(text_question_list)
     model = load_model('model')
 
-    # in case of empty list after processing(due to max length filtering)
+    # Return [] in case of empty list after processing(due to max length filtering)
     if x_test[-1].shape[0] == 0:
         return []
 
