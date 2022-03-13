@@ -11,9 +11,9 @@ def predict_api(test_dict):
     conf = config.bert_conf
     tokenizer = load_bert_tokenizer(conf["bert_folder"])
 
-    model = load_model('model')
     text_question_list = create_api_questions(test_dict, tokenizer, conf["max_len"])
     x_test = create_api_inputs(text_question_list)
+    model = load_model('model')
 
     pred_start, pred_end = model.predict(x_test)
 

@@ -91,9 +91,10 @@ class ApiQuestion:
         self.attention_mask = attention_mask
 
 
-def create_api_questions(data_dict, tokenizer, max_len):
+def create_api_questions(api_data, tokenizer, max_len):
     text_question_list = []
-    for item in data_dict:
+    data_dict = api_data.dict()
+    for item in data_dict["data"]:
         context = item["context"]
         question = item["question"]
         text_question = ApiQuestion(
