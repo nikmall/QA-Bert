@@ -28,11 +28,10 @@ def normalize_answer(text):
     return white_space_fix(remove_articles(remove_punc(lower(text))))
 
 
-def get_raw_scores(all_answers, pred_answer):
+def calculate_scores(all_answers, pred_answer):
     """
     Calculate the f1 and exact match scores of given prediction and true answer(s).
-    It follow the standard practise of Squad dataset evaluation for Raw scores. Raw
-    means thresholds are not applied.
+    It follow the standard practise of Squad dataset evaluation for scores.
     :param all_answers: string predicted answer
     :param pred_answer: list of true answer(s)
     :return: The exact_score, f1_score for the given answer

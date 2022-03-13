@@ -1,8 +1,9 @@
+import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers, activations
-from transformers import BertTokenizer, TFBertModel, BertConfig
-import numpy as np
-from utils.data_utils import normalize_text
+from transformers import TFBertModel
+
+from utils.evaluation import calculate_scores
 
 
 def qa_bert_model(conf):
@@ -18,14 +19,14 @@ def qa_bert_model(conf):
     # Download pre-trained model and configuration from huggingface and cache locally.
     bert_encoder = TFBertModel.from_pretrained(conf["bert_pre_trained"])
 
-    ## QA Head sub-Model
     input_ids = layers.Input(shape=(max_len,), dtype=tf.int32)
     token_type_ids = layers.Input(shape=(max_len,), dtype=tf.int32)
     attention_mask = layers.Input(shape=(max_len,), dtype=tf.int32)
     sequence_emb = bert_encoder.bert(
         input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask
-    )[0] # get only sequence output, throw the classifcation pooled output
+    )[0]  # get only sequence output, throw the classifcation pooled output
 
+    ## QA Head sub-Model
     start_logits = layers.Dense(1, name="start_logit", use_bias=False)(sequence_emb)
     start_logits = layers.Flatten()(start_logits)
 
@@ -42,19 +43,14 @@ def qa_bert_model(conf):
     return model
 
 
-"""
-This code should preferably be run on Google Colab TPU runtime.
-With Colab TPUs, each epoch will take 5-6 minutes.
-"""
-""""""
 def build_model(conf):
     model = qa_bert_model(conf)
     model.summary()
-
     loss = tf.keras.losses.SparseCategoricalCrossentropy()
     optimizer = tf.keras.optimizers.Adam(learning_rate=conf['learning_rate'])
     model.compile(optimizer=optimizer, loss=[loss, loss])
     return model
+
 
 def create_model(conf, use_tpu):
     if use_tpu:
@@ -68,46 +64,43 @@ def create_model(conf, use_tpu):
 
     return model
 
-"""
-## Train and Evaluate
-"""
+
 def model_train(model, conf, epochs, x_train, y_train, x_dev, y_dev, val_squad_qas):
-    exact_match_callback = ExactMatch(x_dev, y_dev, val_squad_qas)
+    exact_match_callback_train = ExactMatch(x_dev, y_dev, val_squad_qas, "train")
+    exact_match_callback_val = ExactMatch(x_dev, y_dev, val_squad_qas, "validation")
     model.fit(
         x_train,
         y_train,
         epochs=epochs,
         verbose=1,
         batch_size=conf["batch"],
-        callbacks=[exact_match_callback],
+        callbacks=[exact_match_callback_train, exact_match_callback_val],
     )
     model.save('model')
 
 
-"""
-## Create evaluation Callback
-This callback will compute the exact match score using the validation data
-after every epoch.
-"""
-
 class ExactMatch(tf.keras.callbacks.Callback):
     """
-    Each `SquadExample` object contains the character level offsets for each token
-    in its input paragraph. We use them to get back the span of text corresponding
-    to the tokens between our predicted start and end tokens.
-    All the ground-truth answers are also present in each `SquadExample` object.
-    We calculate the percentage of data points where the span of text obtained
-    from model predictions matches one of the ground-truth answers.
+    This evaluation callback calculates the EM and F1 score after each epoch.
+    Each SquadQuestionAnswer object has the offsets from the Bert tokenizer. The
+    offset gives character level offsets for each token in its input raw text context.
+    Using the offsets we find the span of text corresponding to the tokens between the
+    predicted start and end indexes, getting the string of predicted answer. Finally,
+    calculate  of EM and F1 score of each predicted question compared to all possible
+    answers keeping the max score for each Question. Finally we print the averaged scores.
     """
 
-    def __init__(self, x_val, y_val, val_squad_qas):
+    def __init__(self, x_val, y_val, val_squad_qas, message=''):
         self.x_val = x_val
         self.y_val = y_val
         self.val_squad_qas = val_squad_qas
+        self.message = message
 
     def on_epoch_end(self, epoch, logs=None):
         pred_start, pred_end = self.model.predict(self.x_val)
-        em_count = 0
+        em = []
+        f1 = []
+
         for i, (start, end) in enumerate(zip(pred_start, pred_end)):
             qa_i = self.val_squad_qas[i]
             offsets = qa_i.context_token_to_char
@@ -122,9 +115,10 @@ class ExactMatch(tf.keras.callbacks.Callback):
             else:
                 pred_answer = qa_i.context[pred_char_start:]
 
-            normalized_pred_answer = normalize_text(pred_answer)
-            normalized_true_answer = [normalize_text(x) for x in qa_i.all_answers]
-            if normalized_pred_answer in normalized_true_answer:
-                em_count += 1
-        acc = em_count / len(self.y_val[0])
-        print(f"\nepoch: {epoch+1}, Exact Match score: {acc:.2f}")
+            exact_score, f1_score = calculate_scores(qa_i.all_answers, pred_answer)
+            em.append(exact_score)
+            f1.append(f1_score)
+        em_total = sum(em) / len(self.y_val[0])
+        f1_total = sum(f1) / len(self.y_val[0])
+        print(f"\nOn epoch: {epoch + 1}, Exact Match score: {em_total:.2f} "
+              f"and F1 score: {f1_total:.2f} on {self.message} data.")

@@ -1,31 +1,4 @@
-import string
-import re
 import numpy as np
-
-
-def normalize_text(text):
-    """
-    Clean and normalize the text following the standard Squad Dataset process, required for evaluation.
-    The normalization includes lowercase, removing punctuations, articles and extra white space.
-    :param text: A string
-    :return: text: The string cleaned after the normalizing steps.
-    """
-
-    def remove_articles(text):
-        regex = re.compile(r'\b(a|an|the)\b', re.UNICODE)
-        return re.sub(regex, ' ', text)
-
-    def white_space_fix(text):
-        return ' '.join(text.split())
-
-    def remove_punc(text):
-        exclude = set(string.punctuation)
-        return ''.join(ch for ch in text if ch not in exclude)
-
-    def lower(text):
-        return text.lower()
-
-    return white_space_fix(remove_articles(remove_punc(lower(text))))
 
 
 def create_api_inputs(text_question_list):
@@ -75,34 +48,36 @@ class ApiQuestion:
         type_ids = [0] * len(tokenized_context.ids) + [1] * len(tokenized_question.ids[1:])
         attention_mask = [1] * len(input_ids)
 
-        # Pad ids, attention and type or throw if exceeds max length and create attention masks.
+        # Pad ids, attention and type  and create attention masks.
         padding_length = self.max_len - len(input_ids)
         if padding_length > 0:  # pad
-            input_ids = input_ids + ([0] * padding_length)
-            attention_mask = attention_mask + ([0] * padding_length)
-            type_ids = type_ids + ([0] * padding_length)
+            self.input_ids = input_ids + ([0] * padding_length)
+            self.attention_mask = attention_mask + ([0] * padding_length)
+            self.token_type_ids = type_ids + ([0] * padding_length)
         elif padding_length < 0:  # skip
             self.skip = True
             return
 
         self.context_token_to_char = tokenized_context.offsets
-        self.input_ids = input_ids
-        self.token_type_ids = type_ids
-        self.attention_mask = attention_mask
 
 
 def create_api_questions(api_data, tokenizer, max_len):
-    text_question_list = []
-    data_dict = api_data.dict()
-    for item in data_dict["data"]:
+    """
+    Reads the API json object of questions and answers, making each context and question-answer(s) into a
+    ApiQuestion, preprocessing it calculating input ids, token ids and attention mask for predicting.
+    :param api_data: the dictionary of api context-questions data
+    :param tokenizer: the Bert Tokenizer object
+    :param max_len: max length of model input(context+question)
+    :return: a list of preprocessed ApiQuestion objects
+    """
+    api_questions = []
+    for item in api_data["data"]:
         context = item["context"]
         question = item["question"]
-        text_question = ApiQuestion(
-            context, question, max_len
-        )
-        text_question.preprocess(tokenizer)
-        text_question_list.append(text_question)
-    return text_question_list
+        api_question = ApiQuestion(context, question, max_len)
+        api_question.preprocess(tokenizer)
+        api_questions.append(api_question)
+    return api_questions
 
 
 def create_inputs_targets(squad_question_answers):
@@ -183,27 +158,25 @@ class SquadQuestionAnswer:
         # Tokenize question
         tokenized_question = tokenizer.encode(question)
 
-        # Create inputs
+        # Create input ids
         input_ids = tokenized_context.ids + tokenized_question.ids[1:]
+        # Create type ids
         token_type_ids = [0] * len(tokenized_context.ids) + [1] * len(
             tokenized_question.ids[1:]
         )
+        # create attention masks
         attention_mask = [1] * len(input_ids)
 
-        # Pad and create attention masks.
-        # Skip if truncation is needed
+        # Pad and skip if len exceeds limit
         padding_length = self.max_len - len(input_ids)
         if padding_length > 0:  # pad
-            input_ids = input_ids + ([0] * padding_length)
-            attention_mask = attention_mask + ([0] * padding_length)
-            token_type_ids = token_type_ids + ([0] * padding_length)
+            self.input_ids = input_ids + ([0] * padding_length)
+            self.attention_mask = attention_mask + ([0] * padding_length)
+            self.token_type_ids = token_type_ids + ([0] * padding_length)
         elif padding_length < 0:  # skip
             self.skip = True
             return
 
-        self.input_ids = input_ids
-        self.token_type_ids = token_type_ids
-        self.attention_mask = attention_mask
         self.context_token_to_char = tokenized_context.offsets
 
 
@@ -233,7 +206,5 @@ def create_squad_qas(squad_json, tokenizer, max_len):
                     question, context, answer_start_idx, answer, all_answers, max_len
                 )
                 squad_qa.preprocess(tokenizer)
-
                 squad_qas.append(squad_qa)
-
     return squad_qas

@@ -1,9 +1,7 @@
 import argparse
 import json
-import numpy as np
-from tensorflow import keras
 
-from utils.data_utils import normalize_text, create_squad_qas, create_inputs_targets
+from utils.data_utils import create_squad_qas, create_inputs_targets
 from utils.model_utils import create_bert_tokenizer, load_bert_tokenizer, set_seeds
 import config
 from model import create_model, model_train
@@ -73,7 +71,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
