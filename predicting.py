@@ -4,17 +4,12 @@ from tokenizers import BertWordPieceTokenizer
 
 import config
 from utils.data_utils import ApiQuestion, create_api_inputs, create_api_questions
-
-
-def load_tokenizer():
-    # Load the fast tokenizer from saved file
-    tokenizer = BertWordPieceTokenizer("bert_base_uncased/vocab.txt", lowercase=True)
-    return tokenizer
+from utils.model_utils import load_bert_tokenizer
 
 
 def predict_api(test_dict):
     conf = config.bert_conf
-    tokenizer = load_tokenizer()
+    tokenizer = load_bert_tokenizer(conf["bert_folder"])
 
     model = load_model('model')
     text_question_list = create_api_questions(test_dict, tokenizer, conf["max_len"])
