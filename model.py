@@ -33,8 +33,8 @@ def qa_bert_model(conf):
     end_logits = layers.Dense(1, name="end_logit", use_bias=False)(sequence_emb)
     end_logits = layers.Flatten()(end_logits)
 
-    start_probs = layers.Activation(activations.softmax)(start_logits)
-    end_probs = layers.Activation(activations.softmax)(end_logits)
+    start_probs = layers.Activation(activations.softmax, name="start_out")(start_logits)
+    end_probs = layers.Activation(activations.softmax, name="end_out")(end_logits)
 
     model = tf.keras.Model(
         inputs=[input_ids, token_type_ids, attention_mask],

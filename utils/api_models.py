@@ -9,7 +9,6 @@ class ContextQuestion(BaseModel):
     question: str
 
 
-
 class ContextQuestionList(BaseModel):
     data: List[ContextQuestion]
 
