@@ -14,7 +14,8 @@ def predict_api(test_dict):
     data_dict = test_dict.dict()
     text_question_list = create_api_questions(data_dict, tokenizer, conf["max_len"])
     x_test = create_api_inputs(text_question_list)
-    model = load_model('model')
+    max_len = conf["max_len"]
+    model = load_model(f"model_{max_len}")
 
     # Return [] in case of empty list after processing(due to max length filtering)
     if x_test[-1].shape[0] == 0:
