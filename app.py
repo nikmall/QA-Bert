@@ -1,9 +1,9 @@
 import uvicorn
 from fastapi import FastAPI
-from pydantic import BaseModel
-from typing import List
-
 from predicting import predict_api
+
+from utils.api_models import ContextQuestionList
+
 
 """ 
 Run locally using http://localhost:5000/predict
@@ -14,15 +14,6 @@ app = FastAPI(
     description="This API predicts answers from given context.",
     version="1.0",
 )
-
-
-class ContextQuestion(BaseModel):
-    context: str
-    question: str
-
-
-class ContextQuestionList(BaseModel):
-    data: List[ContextQuestion]
 
 
 @app.get('/health/')
