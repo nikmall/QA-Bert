@@ -23,7 +23,7 @@ def load_squad_dataset(conf, tokenizer):
         train_json = json.load(f)
     train_squad_qas = create_squad_qas(train_json, tokenizer, max_len)
     train_squad_qas = [x for x in train_squad_qas if x.skip is False]
-    print(f"{len(train_squad_qas)} training points created of given max length.")
+    print(f"{len(train_squad_qas)} train instances created of given max length.")
 
     x_train, y_train = create_inputs_targets(train_squad_qas)
 
@@ -31,7 +31,7 @@ def load_squad_dataset(conf, tokenizer):
         dev_json = json.load(f)
     dev_squad_qas = create_squad_qas(dev_json, tokenizer, max_len)
     dev_squad_qas = [x for x in dev_squad_qas if x.skip is False]
-    print(f"{len(dev_squad_qas)} evaluation points created of given max length.")
+    print(f"{len(dev_squad_qas)} develop instances created of given max length.")
 
     x_dev, y_dev = create_inputs_targets(dev_squad_qas)
 
@@ -46,7 +46,7 @@ def process_training(conf, epochs, use_tpu):
     tokenizer = load_bert_tokenizer(bert_folder)
     x_train, y_train, x_dev, y_dev, train_squad_qas, dev_squad_qas = load_squad_dataset(conf, tokenizer)
     model = create_model(conf, use_tpu)
-    model_train(model, conf, epochs, x_train, y_train, x_dev, y_dev, dev_squad_qas)
+    model_train(model, conf, epochs, x_train, y_train, x_dev, y_dev, train_squad_qas, dev_squad_qas)
 
 
 def main():
@@ -55,7 +55,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="Squad question answering Bert Based Tensorflow Model")
     parser.add_argument("--use_tpu", type=bool, default=False, help='To load existing saved model and continue')
-    parser.add_argument("--epochs", type=int, default=1, help='To load existing saved model and continue')
+    parser.add_argument("--epochs", type=int, default=3, help='To load existing saved model and continue')
     parser.add_argument("--config", type=str, default='bert', help='The basic model configuration dictionary to use.')
 
     args = parser.parse_args()

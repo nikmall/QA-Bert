@@ -39,26 +39,26 @@ class ApiQuestion:
         context = " ".join(str(self.context).split())
         question = " ".join(str(self.question).split())
 
-        # Tokenize context and question
         tokenized_context = tokenizer.encode(context)
         tokenized_question = tokenizer.encode(question)
+        self.context_token_to_char = tokenized_context.offsets
 
-        # Create inputs
+        # Create input ids combining context and question tokens (skip 2nd '[CLS]').
         input_ids = tokenized_context.ids + tokenized_question.ids[1:]  # after '[CLS]'
+        # Create type ids
         type_ids = [0] * len(tokenized_context.ids) + [1] * len(tokenized_question.ids[1:])
+        # create attention masks
         attention_mask = [1] * len(input_ids)
 
-        # Pad ids, attention and type  and create attention masks.
+        # Pad  to max length or skip if len exceeds limit
         padding_length = self.max_len - len(input_ids)
-        if padding_length > 0:  # pad
+        if padding_length >= 0:
             self.input_ids = input_ids + ([0] * padding_length)
             self.attention_mask = attention_mask + ([0] * padding_length)
             self.token_type_ids = type_ids + ([0] * padding_length)
-        elif padding_length < 0:  # skip
+        else:
             self.skip = True
             return
-
-        self.context_token_to_char = tokenized_context.offsets
 
 
 def create_api_questions(api_data, tokenizer, max_len):
@@ -127,21 +127,21 @@ class SquadQuestionAnswer:
         answer = " ".join(str(self.answer).split())
         answer_start_idx = self.answer_start_idx
 
-        # Calculate answer end character index in context
+        # Calculate answer end  index or set skip=True if answer index exceeds context length
         answer_end_idx = answer_start_idx + len(answer)
         if answer_end_idx >= len(context):
             self.skip = True
             return
 
-        # Mark the character indexes in context that are in answer
+        # Create answer mask of context  using the indexes
         is_char_in_ans = [0] * len(context)
         for idx in range(answer_start_idx, answer_end_idx):
             is_char_in_ans[idx] = 1
 
-        # Tokenize context
         tokenized_context = tokenizer.encode(context)
+        self.context_token_to_char = tokenized_context.offsets
 
-        # Find tokens that were created from answer characters
+        # Find answer's new tokens in context after tokenization
         ans_token_idx = []
         for idx, (start, end) in enumerate(tokenized_context.offsets):
             if sum(is_char_in_ans[start:end]) > 0:
@@ -151,33 +151,28 @@ class SquadQuestionAnswer:
             self.skip = True
             return
 
-        # Find start and end token index for tokens from answer
+        # Set the new start and end token indexes after tokenization
         self.start_token_idx = ans_token_idx[0]
         self.end_token_idx = ans_token_idx[-1]
 
-        # Tokenize question
         tokenized_question = tokenizer.encode(question)
 
-        # Create input ids
+        # Create input ids combining context and question tokens (skip 2nd '[CLS]').
         input_ids = tokenized_context.ids + tokenized_question.ids[1:]
         # Create type ids
-        token_type_ids = [0] * len(tokenized_context.ids) + [1] * len(
-            tokenized_question.ids[1:]
-        )
+        token_type_ids = [0] * len(tokenized_context.ids) + [1] * len(tokenized_question.ids[1:])
         # create attention masks
         attention_mask = [1] * len(input_ids)
 
-        # Pad and skip if len exceeds limit
+        # Pad  to max length or skip if len exceeds limit
         padding_length = self.max_len - len(input_ids)
-        if padding_length > 0:  # pad
+        if padding_length >= 0:
             self.input_ids = input_ids + ([0] * padding_length)
             self.attention_mask = attention_mask + ([0] * padding_length)
             self.token_type_ids = token_type_ids + ([0] * padding_length)
-        elif padding_length < 0:  # skip
+        else:
             self.skip = True
             return
-
-        self.context_token_to_char = tokenized_context.offsets
 
 
 

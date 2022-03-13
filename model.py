@@ -33,8 +33,8 @@ def qa_bert_model(conf):
     end_logits = layers.Dense(1, name="end_logit", use_bias=False)(sequence_emb)
     end_logits = layers.Flatten()(end_logits)
 
-    start_probs = layers.Activation(activations.softmax, name="start_out")(start_logits)
-    end_probs = layers.Activation(activations.softmax, name="end_out")(end_logits)
+    start_probs = layers.Activation(activations.softmax, name="start_probs")(start_logits)
+    end_probs = layers.Activation(activations.softmax, name="end_probs")(end_logits)
 
     model = tf.keras.Model(
         inputs=[input_ids, token_type_ids, attention_mask],
@@ -65,9 +65,9 @@ def create_model(conf, use_tpu):
     return model
 
 
-def model_train(model, conf, epochs, x_train, y_train, x_dev, y_dev, val_squad_qas):
-    exact_match_callback_train = ExactMatch(x_dev, y_dev, val_squad_qas, "train")
-    exact_match_callback_val = ExactMatch(x_dev, y_dev, val_squad_qas, "validation")
+def model_train(model, conf, epochs, x_train, y_train, x_dev, y_dev, train_squad_qas, val_squad_qas):
+    exact_match_callback_train = Evaluation(x_train, y_train, train_squad_qas, "train")
+    exact_match_callback_val = Evaluation(x_dev, y_dev, val_squad_qas, "validation")
     model.fit(
         x_train,
         y_train,
@@ -76,18 +76,19 @@ def model_train(model, conf, epochs, x_train, y_train, x_dev, y_dev, val_squad_q
         batch_size=conf["batch"],
         callbacks=[exact_match_callback_train, exact_match_callback_val],
     )
-    model.save('model')
+    max_len = conf["max_len"]
+    model.save(f"model_{max_len}")
 
 
-class ExactMatch(tf.keras.callbacks.Callback):
+class Evaluation(tf.keras.callbacks.Callback):
     """
     This evaluation callback calculates the EM and F1 score after each epoch.
     Each SquadQuestionAnswer object has the offsets from the Bert tokenizer. The
-    offset gives character level offsets for each token in its input raw text context.
+    offset gives character level offsets in the raw text context .
     Using the offsets we find the span of text corresponding to the tokens between the
     predicted start and end indexes, getting the string of predicted answer. Finally,
     calculate  of EM and F1 score of each predicted question compared to all possible
-    answers keeping the max score for each Question. Finally we print the averaged scores.
+    answers keeping the max score for each Question.  Print the averaged final scores.
     """
 
     def __init__(self, x_val, y_val, val_squad_qas, message=''):
